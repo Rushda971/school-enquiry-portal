@@ -1,4 +1,5 @@
 <?php
+require_once 'db.php';
 header('Content-Type: application/json');
 
 // Only POST request allowed
@@ -60,57 +61,26 @@ $referenceLabels = [
 $standardText  = $standardLabels[$standard] ?? $standard;
 $referenceText = $referenceLabels[$reference] ?? $reference;
 
-// Folder and file path
-$dataDir = __DIR__ . "/data";
-$filePath = $dataDir . "/enquiries.csv";
+$stmt = $conn->prepare(
+    "INSERT INTO enquiries
+    (child_name, parent_name, contact, standard_name, reference_source, message, ip_address)
+    VALUES (?, ?, ?, ?, ?, ?, ?)"
+);
 
-// Create data directory if not exists
-if (!is_dir($dataDir)) {
-    mkdir($dataDir, 0777, true);
-}
+$ip = $_SERVER['REMOTE_ADDR'] ?? '';
 
-// Check if file already exists
-$fileExists = file_exists($filePath);
-
-// Open file in append mode
-$file = fopen($filePath, 'a');
-
-if (!$file) {
-    echo json_encode([
-        "status" => "error",
-        "message" => "Unable to save data."
-    ]);
-    exit;
-}
-
-// Add BOM for proper Excel UTF-8 support
-if (!$fileExists) {
-    fwrite($file, "\xEF\xBB\xBF");
-    fputcsv($file, [
-        "Date Time",
-        "Child Name",
-        "Parent Name",
-        "Contact Number",
-        "Standard",
-        "Reference",
-        "Message",
-        "IP Address"
-    ]);
-}
-
-// Save row
-fputcsv($file, [
-    date("Y-m-d H:i:s"),
+$stmt->bind_param(
+    "sssssss",
     $childName,
     $parentName,
     $contact,
     $standardText,
     $referenceText,
     $message,
-    $_SERVER['REMOTE_ADDR'] ?? ''
-]);
+    $ip
+);
 
-fclose($file);
+$stmt->execute();
 
 echo json_encode([
     "status" => "success",
